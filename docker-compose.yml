@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  app:
+      container_name: app
+      stdin_open: true
+      tty: true
+      build: .
+      networks:
+        serviceNetwork:
+          ipv4_address: 192.168.2.2
+      volumes:
+        - ./:/home/app
+      ports:
+          - "8000:8000"
+      depends_on:
+        - db_server
+        - redis_server
+        - rabbitmq_server
+      restart: unless-stopped
+      env_file: .env
+      command: ["python","manage.py", "runserver", "0.0.0.0:8000"]
+  db_server:
+    image: postgres:13-alpine
+    container_name: db_server
+    env_file:
+      - .env
+    volumes:
+      - dbServerVolume:/var/lib/postgresql/data
+    networks:
+      serviceNetwork:
+        ipv4_address: 192.168.2.3
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  rabbitmq_server:
+    image: rabbitmq:3.8.14-management-alpine
+    container_name: rabbitmq_server
+    volumes:
+      - rabbitMQVolume:/var/lib/rabbitmq
+    networks:
+      serviceNetwork:
+        ipv4_address: 192.168.2.4
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: app
+      RABBITMQ_DEFAULT_PASS: app
+      RABBITMQ_DEFAULT_VHOST: app
+    restart: unless-stopped
+
+  redis_server:
+    image: redis:6.2.1
+    container_name: redis_server
+    volumes:
+      - redisVolume:/data
+    networks:
+      serviceNetwork:
+        ipv4_address: 192.168.2.5
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+# Network definition
+networks:
+  serviceNetwork:
+    name: serviceNetwork
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.2.0/24
+
+# Volume definition
+volumes:
+  dbServerVolume:
+    name: dbServerVolume
+  rabbitMQVolume:
+    name: rabbitMQVolume
+  redisVolume:
+    name: redisVolume
